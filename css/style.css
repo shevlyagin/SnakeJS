@@ -1,0 +1,4 @@
+canvas {
+  display: block; /* elimina el espacio inferior no deseado */
+  margin: 0 auto; /* centra horizontalmente */
+}
