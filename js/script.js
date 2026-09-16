@@ -1,126 +1,177 @@
-// Obtenemos el elemento canvas del HTML por su id
 const canvas = document.getElementById("game");
+const context = canvas.getContext("2d");
+const statusText = document.getElementById("game-status");
+const restartButton = document.getElementById("restart-button");
 
-// Obtenemos el contexto para dibujar gráficos en 2D
-const ctx = canvas.getContext("2d");
+const groundImage = new Image();
+groundImage.src = "img/ground.png";
 
-// Creamos un objeto de imagen para el fondo (tierra / hierba)
-const ground = new Image();
-ground.src = "img/ground.png"; // Ruta a la imagen del fondo
+const foodImage = new Image();
+foodImage.src = "img/food.png";
 
-// Creamos un objeto de imagen para la comida
-const foodImg = new Image();
-foodImg.src = "img/food.png"; // Ruta a la imagen de la comida
-
-// Tamaño de una celda del campo de juego (en píxeles)
-let box = 32;
-
-// Contador de comida ingerida / puntuación
-let score = 0;
-
-// Coordenadas de la comida (un objeto con x e y)
-// Posición aleatoria: x — de la celda 1 a la 17, y — de la celda 3 a la 17
-let food = {
-  x: Math.floor((Math.random() * 17 + 1)) * box,
-  y: Math.floor((Math.random() * 15 + 3)) * box,
+const box = 32;
+const speed = 100;
+const directions = {
+  ArrowLeft: { x: -1, y: 0, name: "left" },
+  a: { x: -1, y: 0, name: "left" },
+  ArrowUp: { x: 0, y: -1, name: "up" },
+  w: { x: 0, y: -1, name: "up" },
+  ArrowRight: { x: 1, y: 0, name: "right" },
+  d: { x: 1, y: 0, name: "right" },
+  ArrowDown: { x: 0, y: 1, name: "down" },
+  s: { x: 0, y: 1, name: "down" },
 };
 
-// Array donde se guarda toda la serpiente (cada elemento es un objeto {x, y})
-let snake = [];
-// Posición inicial de la cabeza de la serpiente — más o menos en el centro del campo
-snake[0] = {
-  x: 9 * box,
-  y: 10 * box
+const opposite = {
+  left: "right",
+  right: "left",
+  up: "down",
+  down: "up",
 };
 
-// Variable que guarda la dirección actual del movimiento
-let dir; // undefined → la serpiente todavía no se mueve
+let snake;
+let food;
+let score;
+let direction;
+let gameInterval;
+let gameOver;
+let canTurn;
 
-// Escuchamos las teclas pulsadas en toda la página
-document.addEventListener("keydown", direction);
+function resetGame() {
+  clearInterval(gameInterval);
 
-// Función que decide hacia dónde se mueve la serpiente ahora
-function direction(event) {
-  // 37 = ←, 38 = ↑, 39 = →, 40 = ↓
-  // No permitimos girar 180° (no se puede ir de "derecha" a "izquierda" directamente)
-  if      (event.keyCode == 37 && dir != "right") dir = "left";
-  else if (event.keyCode == 38 && dir != "down")  dir = "up";
-  else if (event.keyCode == 39 && dir != "left")  dir = "right";
-  else if (event.keyCode == 40 && dir != "up")    dir = "down";
+  snake = [{ x: 9 * box, y: 10 * box }];
+  score = 0;
+  direction = null;
+  gameInterval = null;
+  gameOver = false;
+  canTurn = true;
+  food = generateFood();
+
+  statusText.textContent = "Use the arrow keys or WASD to start.";
+  drawGame();
 }
 
-// Comprobamos si la cabeza de la serpiente choca con algún segmento de su cuerpo
-function eatTail(head, arr) {
-  for (let i = 0; i < arr.length; i++) {
-    // Si las coordenadas de la cabeza coinciden con cualquier parte del cuerpo → el jugador pierde
-    if (head.x == arr[i].x && head.y == arr[i].y)
-      clearInterval(game); // Paramos el juego
-  }
-}
+function generateFood() {
+  let newFood;
 
-// Función principal del juego — se llama cada 100 ms
-function drawGame() {
-  // Dibujamos el fondo (cubre todo lo que había antes)
-  ctx.drawImage(ground, 0, 0);
-
-  // Dibujamos la comida en sus coordenadas actuales
-  ctx.drawImage(foodImg, food.x, food.y);
-
-  // Dibujamos la serpiente
-  for (let i = 0; i < snake.length; i++) {
-    // La cabeza es verde, el cuerpo es rojo
-    ctx.fillStyle = i == 0 ? "green" : "red";
-    ctx.fillRect(snake[i].x, snake[i].y, box, box);
-  }
-
-  // Mostramos la puntuación en la esquina superior izquierda
-  ctx.fillStyle = "white";
-  ctx.font = "50px Arial";
-  ctx.fillText(score, box * 2.5, box * 1.7);
-
-  // Coordenadas actuales de la cabeza (antes de moverse)
-  let snakeX = snake[0].x;
-  let snakeY = snake[0].y;
-
-  // Si la cabeza está en la misma celda que la comida
-  if (snakeX == food.x && snakeY == food.y) {
-    score++;  // +1 punto
-
-    // Creamos nueva comida en un lugar aleatorio
-    food = {
-      x: Math.floor((Math.random() * 17 + 1)) * box,
-      y: Math.floor((Math.random() * 15 + 3)) * box,
+  do {
+    newFood = {
+      x: Math.floor(Math.random() * 17 + 1) * box,
+      y: Math.floor(Math.random() * 15 + 3) * box,
     };
-    // Importante: la serpiente NO se hace más corta (no se ejecuta pop)
+  } while (snake.some((part) => part.x === newFood.x && part.y === newFood.y));
+
+  return newFood;
+}
+
+function changeDirection(event) {
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  const newDirection = directions[key];
+
+  if (!newDirection || gameOver || !canTurn) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (direction && opposite[direction.name] === newDirection.name) {
+    return;
+  }
+
+  direction = newDirection;
+  canTurn = false;
+
+  if (!gameInterval) {
+    statusText.textContent = "Game in progress.";
+    gameInterval = setInterval(updateGame, speed);
+  }
+}
+
+function updateGame() {
+  const head = snake[0];
+  const newHead = {
+    x: head.x + direction.x * box,
+    y: head.y + direction.y * box,
+  };
+
+  const ateFood = newHead.x === food.x && newHead.y === food.y;
+  const body = ateFood ? snake : snake.slice(0, -1);
+  const hitBody = body.some((part) => part.x === newHead.x && part.y === newHead.y);
+  const hitWall =
+    newHead.x < box ||
+    newHead.x > 17 * box ||
+    newHead.y < 3 * box ||
+    newHead.y > 17 * box;
+
+  if (hitWall || hitBody) {
+    finishGame();
+    return;
+  }
+
+  snake.unshift(newHead);
+
+  if (ateFood) {
+    score += 1;
+    food = generateFood();
   } else {
-    // Eliminamos el último segmento de la cola (la serpiente se mueve)
     snake.pop();
   }
 
-  // Comprobamos si la serpiente ha salido del campo de juego
-  if (snakeX < box || snakeX > box * 17 ||
-      snakeY < 3 * box || snakeY > box * 17) {
-    clearInterval(game); // El juego ha terminado
-  }
-
-  // Cambiamos las coordenadas de la cabeza según la dirección
-  if (dir == "left")  snakeX -= box;
-  if (dir == "right") snakeX += box;
-  if (dir == "up")    snakeY -= box;
-  if (dir == "down")  snakeY += box;
-
-  // Creamos un objeto con la nueva posición de la cabeza
-  let newHead = {
-    x: snakeX,
-    y: snakeY
-  };
-
-  // Comprobamos si la nueva cabeza choca con el cuerpo
-  eatTail(newHead, snake);
-
-  // Añadimos la nueva cabeza al principio del array (la serpiente "avanza")
-  snake.unshift(newHead);
+  canTurn = true;
+  drawGame();
 }
 
-// Iniciamos el bucle del juego — llamamos a drawGame() cada 100 ms
-let game = setInterval(drawGame, 100);
+function finishGame() {
+  clearInterval(gameInterval);
+  gameOver = true;
+  statusText.textContent = `Game over. Your score: ${score}.`;
+  drawGame();
+  drawMessage("GAME OVER", `Score: ${score}`);
+}
+
+function drawGame() {
+  if (groundImage.complete && groundImage.naturalWidth > 0) {
+    context.drawImage(groundImage, 0, 0);
+  } else {
+    context.fillStyle = "#4f8435";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (foodImage.complete && foodImage.naturalWidth > 0) {
+    context.drawImage(foodImage, food.x, food.y);
+  }
+
+  for (let i = 0; i < snake.length; i += 1) {
+    context.fillStyle = i === 0 ? "green" : "red";
+    context.fillRect(snake[i].x, snake[i].y, box, box);
+  }
+
+  context.fillStyle = "white";
+  context.font = "50px Arial";
+  context.fillText(score, box * 2.5, box * 1.7);
+
+  if (!direction && !gameOver) {
+    drawMessage("READY?", "Press an arrow key or WASD");
+  }
+}
+
+function drawMessage(title, subtitle) {
+  context.fillStyle = "rgba(0, 0, 0, 0.65)";
+  context.fillRect(box, box * 7, box * 17, box * 4);
+
+  context.textAlign = "center";
+  context.fillStyle = "white";
+  context.font = "bold 36px Arial";
+  context.fillText(title, canvas.width / 2, box * 8.5);
+  context.font = "20px Arial";
+  context.fillText(subtitle, canvas.width / 2, box * 9.6);
+  context.textAlign = "left";
+}
+
+document.addEventListener("keydown", changeDirection);
+restartButton.addEventListener("click", resetGame);
+groundImage.addEventListener("load", drawGame);
+foodImage.addEventListener("load", drawGame);
+
+resetGame();
