@@ -2,6 +2,10 @@
 
 A responsive browser version of the classic Snake game, built with HTML Canvas and vanilla JavaScript.
 
+### 🎮 Play Online
+
+[Play SnakeJS](https://shevlyagin.github.io/SnakeJS/)
+
 ## Features
 
 - Keyboard controls with arrow keys or WASD
