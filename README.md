@@ -49,3 +49,7 @@ This game was originally developed as an academic project during the **Grado Sup
 - Save the best score locally
 - Add configurable difficulty levels
 - Publish a live demo with GitHub Pages
+
+## Screenshot
+
+![SnakeJS Gameplay](img/image.png)
