@@ -50,10 +50,3 @@ SnakeJS/
 ## Project context
 
 This game was originally developed as an academic project during the **Grado Superior en Desarrollo de Aplicaciones Multiplataforma (DAM)** programme in Spain. It was later refactored and documented as part of my development portfolio.
-
-## Planned improvements
-
-- Add touch controls for mobile devices
-- Save the best score locally
-- Add configurable difficulty levels
-- Publish a live demo with GitHub Pages
